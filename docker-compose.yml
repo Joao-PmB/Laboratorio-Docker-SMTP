@@ -1,0 +1,25 @@
+services:
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Interface web
+    networks:
+      email_network:
+        ipv4_address: 172.20.10.2
+
+  cliente:
+    image: alpine
+    container_name: cliente_email
+    command: sleep infinity
+    networks:
+      email_network:
+        ipv4_address: 172.20.10.3
+
+networks:
+  email_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.10.0/24
