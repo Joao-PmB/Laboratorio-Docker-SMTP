@@ -1,0 +1,160 @@
+
+---
+
+## 🗂️ Workflow completo para a apresentação
+
+---
+
+### FASE 1 — Estrutura do projeto - OK
+
+Crie a pasta do projeto:
+```bash
+mkdir laboratorio-email && cd laboratorio-email
+```
+
+Estrutura de arquivos:
+```
+laboratorio-email/
+├── docker-compose.yml
+├── README.md
+└── config/
+    └── (arquivos de configuração)
+```
+
+---
+
+### FASE 2 — docker-compose.yml
+
+O trabalho exige:
+- Rede Docker própria com sub-rede definida
+- IP fixo para cada container
+- Pelo menos um container cliente para testes
+
+```yaml
+services:
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Interface web
+    networks:
+      email_network:
+        ipv4_address: 172.20.10.2
+
+  cliente:
+    image: alpine
+    container_name: cliente_email
+    command: sleep infinity
+    networks:
+      email_network:
+        ipv4_address: 172.20.10.3
+
+networks:
+  email_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.10.0/24
+```
+
+---
+
+### FASE 3 — Subir e testar
+
+```bash
+docker compose up -d
+```
+
+**Testar envio via SMTP pelo terminal (dentro do container cliente):**
+```bash
+docker exec -it cliente_email sh
+apk add --no-cache netcat-openbsd
+
+nc mailpit 1025
+```
+
+Depois digitar manualmente os comandos SMTP (isso é o que a professora quer ver na captura):
+```
+EHLO cliente.local
+MAIL FROM:<usuario1@teste.com>
+RCPT TO:<usuario2@teste.com>
+DATA
+Subject: Teste SMTP
+
+Olá! Mensagem de teste.
+.
+QUIT
+```
+
+**Ver o e-mail recebido:** acesse `http://localhost:8025` no navegador.
+
+---
+
+### FASE 4 — Captura de tráfego com tcpdump
+
+```bash
+docker exec -it mailpit sh
+apk add --no-cache tcpdump
+tcpdump -i eth0 -w /tmp/captura.pcap port 1025
+```
+
+Depois copie o arquivo para analisar no Wireshark:
+```bash
+docker cp mailpit:/tmp/captura.pcap ./captura.pcap
+```
+
+---
+
+### FASE 5 — O que mostrar no Wireshark
+
+A professora exige mostrar:
+- Comando `EHLO`
+- `MAIL FROM`
+- `RCPT TO`
+- `DATA`
+- Códigos de resposta (`220`, `250`, `354`, `221`)
+
+---
+
+### FASE 6 — Cálculo da sub-rede (obrigatório no relatório)
+
+| Campo | Valor |
+|---|---|
+| Rede | `172.20.10.0` |
+| Máscara | `255.255.255.0 (/24)` |
+| Broadcast | `172.20.10.255` |
+| Hosts úteis | `172.20.10.1` até `172.20.10.254` |
+| Total de hosts | 254 |
+
+---
+
+### FASE 7 — README.md (obrigatório na entrega)
+
+```markdown
+## Como subir
+docker compose up -d
+
+## Como testar
+docker exec -it cliente_email sh
+apk add netcat-openbsd
+nc mailpit 1025
+
+## Interface web
+http://localhost:8025
+```
+
+---
+
+### FASE 8 — Checklist da apresentação (10-15 min)
+
+- [ ] Subir ao vivo com `docker compose up -d`
+- [ ] Mostrar `docker ps` com os containers rodando
+- [ ] Enviar e-mail via `nc` com comandos SMTP na mão
+- [ ] Mostrar e-mail recebido na interface web (`localhost:8025`)
+- [ ] Abrir o `.pcap` no Wireshark e destacar os comandos SMTP
+- [ ] Explicar portas: SMTP `25/1025`, POP3 `110`, IMAP `143`
+
+---
+
+> O **Mailpit** é a melhor escolha para apresentação — tem interface web bonita, funciona com SMTP, e é fácil de demonstrar ao vivo. 🐳
