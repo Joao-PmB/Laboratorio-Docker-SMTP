@@ -1,0 +1,21 @@
+docker compose up -d
+
+docker exec -it cliente_email sh
+apk add --no-cache netcat-openbsd
+
+nc mailpit 1025
+
+EHLO cliente.local
+MAIL FROM:<usuario1@teste.com>
+RCPT TO:<usuario2@teste.com>
+DATA
+Subject: Teste SMTP
+From: <usuario1@teste.com>
+To: <usuario2@teste.com>
+
+Olá! Mensagem de teste.
+. (depois use o ctrl + v e enter, no qual irá virar um ^M)
+QUIT
+
+
+**Ver o e-mail recebido:** acesse `http://localhost:8025` no navegador.

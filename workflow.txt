@@ -23,7 +23,7 @@ laboratorio-email/
 
 ---
 
-### FASE 2 — docker-compose.yml
+### FASE 2 — docker-compose.yml - OK
 
 O trabalho exige:
 - Rede Docker própria com sub-rede definida
@@ -60,7 +60,7 @@ networks:
 
 ---
 
-### FASE 3 — Subir e testar
+### FASE 3 — Subir e testar - OK
 
 ```bash
 docker compose up -d
