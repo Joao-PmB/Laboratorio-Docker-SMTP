@@ -3,7 +3,7 @@ docker compose up -d
 docker exec -it cliente_email sh
 apk add --no-cache netcat-openbsd
 
-nc mailpit 1025
+nc -C mailpit 1025
 
 EHLO cliente.local
 MAIL FROM:<usuario1@teste.com>
@@ -14,7 +14,7 @@ From: <usuario1@teste.com>
 To: <usuario2@teste.com>
 
 Olá! Mensagem de teste.
-. (depois use o ctrl + v e enter, no qual irá virar um ^M)
+.  (com o -C basta digitar o ponto e enter)
 QUIT
 
 

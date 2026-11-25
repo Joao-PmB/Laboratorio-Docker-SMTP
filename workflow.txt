@@ -7,19 +7,16 @@
 
 ### FASE 1 — Estrutura do projeto - OK
 
-Crie a pasta do projeto:
-```bash
-mkdir laboratorio-email && cd laboratorio-email
-```
-
 Estrutura de arquivos:
 ```
-laboratorio-email/
+Laboratorio-Docker-SMTP/
 ├── docker-compose.yml
 ├── README.md
-└── config/
-    └── (arquivos de configuração)
+├── colinha.txt
+└── workflow.txt
 ```
+
+> Não precisa de pasta `config/`: o Mailpit funciona sem arquivo de configuração.
 
 ---
 
@@ -30,33 +27,13 @@ O trabalho exige:
 - IP fixo para cada container
 - Pelo menos um container cliente para testes
 
-```yaml
-services:
-  mailpit:
-    image: axllent/mailpit
-    container_name: mailpit
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Interface web
-    networks:
-      email_network:
-        ipv4_address: 172.20.10.2
+| Container | IP |
+|---|---|
+| gateway (bridge do Docker) | `172.30.10.1` |
+| mailpit | `172.30.10.2` |
+| cliente_email | `172.30.10.3` |
 
-  cliente:
-    image: alpine
-    container_name: cliente_email
-    command: sleep infinity
-    networks:
-      email_network:
-        ipv4_address: 172.20.10.3
-
-networks:
-  email_network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.10.0/24
-```
+(conteúdo completo no arquivo `docker-compose.yml`)
 
 ---
 
@@ -71,8 +48,11 @@ docker compose up -d
 docker exec -it cliente_email sh
 apk add --no-cache netcat-openbsd
 
-nc mailpit 1025
+nc -C mailpit 1025
 ```
+
+> `-C` faz o nc enviar `\r\n` (CRLF) no fim de cada linha, que é o que o SMTP exige.
+> Assim não precisa do truque do `ctrl+v` + enter (`^M`) para o ponto final.
 
 Depois digitar manualmente os comandos SMTP (isso é o que a professora quer ver na captura):
 ```
@@ -81,6 +61,8 @@ MAIL FROM:<usuario1@teste.com>
 RCPT TO:<usuario2@teste.com>
 DATA
 Subject: Teste SMTP
+From: <usuario1@teste.com>
+To: <usuario2@teste.com>
 
 Olá! Mensagem de teste.
 .
@@ -93,13 +75,21 @@ QUIT
 
 ### FASE 4 — Captura de tráfego com tcpdump
 
+A ordem importa: a captura precisa estar rodando ANTES do envio. Use dois terminais.
+
+**Terminal 1 — iniciar a captura (dentro do mailpit):**
 ```bash
 docker exec -it mailpit sh
 apk add --no-cache tcpdump
-tcpdump -i eth0 -w /tmp/captura.pcap port 1025
+tcpdump -i eth0 -U -w /tmp/captura.pcap port 1025
 ```
+> `-U` grava cada pacote no arquivo na hora (sem buffer).
 
-Depois copie o arquivo para analisar no Wireshark:
+**Terminal 2 — enviar o e-mail:** repetir a FASE 3 (`nc -C mailpit 1025` ...).
+
+**Terminal 1 — parar a captura:** `Ctrl+C` (só depois disso o .pcap fica completo).
+
+Depois copie o arquivo para o host para analisar no Wireshark:
 ```bash
 docker cp mailpit:/tmp/captura.pcap ./captura.pcap
 ```
@@ -108,41 +98,36 @@ docker cp mailpit:/tmp/captura.pcap ./captura.pcap
 
 ### FASE 5 — O que mostrar no Wireshark
 
+ATENÇÃO: o Wireshark só reconhece SMTP na porta 25. Na porta 1025 ele mostra
+apenas TCP. Para decodificar:
+
+1. Clique com o botão direito num pacote → **Decode As...**
+2. Campo `TCP port` = `1025` → Current = **SMTP** → OK
+3. Filtro de exibição: `smtp`
+4. Opcional: botão direito → **Follow → TCP Stream** mostra a conversa inteira
+
 A professora exige mostrar:
 - Comando `EHLO`
 - `MAIL FROM`
 - `RCPT TO`
 - `DATA`
-- Códigos de resposta (`220`, `250`, `354`, `221`)
+- Códigos de resposta:
+  - `220` — servidor pronto (saudação inicial)
+  - `250` — comando aceito (EHLO, MAIL FROM, RCPT TO, fim do DATA)
+  - `354` — pode enviar o corpo, termine com `.`
+  - `221` — encerrando a conexão (resposta ao QUIT)
 
 ---
 
 ### FASE 6 — Cálculo da sub-rede (obrigatório no relatório)
 
-| Campo | Valor |
-|---|---|
-| Rede | `172.20.10.0` |
-| Máscara | `255.255.255.0 (/24)` |
-| Broadcast | `172.20.10.255` |
-| Hosts úteis | `172.20.10.1` até `172.20.10.254` |
-| Total de hosts | 254 |
+Ver a seção "Cálculo da sub-rede" no `README.md`.
 
 ---
 
-### FASE 7 — README.md (obrigatório na entrega)
+### FASE 7 — README.md (obrigatório na entrega) - OK
 
-```markdown
-## Como subir
-docker compose up -d
-
-## Como testar
-docker exec -it cliente_email sh
-apk add netcat-openbsd
-nc mailpit 1025
-
-## Interface web
-http://localhost:8025
-```
+Arquivo `README.md` criado na raiz do projeto.
 
 ---
 
@@ -150,10 +135,12 @@ http://localhost:8025
 
 - [ ] Subir ao vivo com `docker compose up -d`
 - [ ] Mostrar `docker ps` com os containers rodando
-- [ ] Enviar e-mail via `nc` com comandos SMTP na mão
+- [ ] Mostrar os IPs fixos: `docker network inspect laboratorio-docker-smtp_email_network`
+- [ ] Iniciar o tcpdump no mailpit (terminal 1)
+- [ ] Enviar e-mail via `nc -C` com comandos SMTP na mão (terminal 2)
 - [ ] Mostrar e-mail recebido na interface web (`localhost:8025`)
-- [ ] Abrir o `.pcap` no Wireshark e destacar os comandos SMTP
-- [ ] Explicar portas: SMTP `25/1025`, POP3 `110`, IMAP `143`
+- [ ] Parar o tcpdump, copiar o `.pcap` e abrir no Wireshark (Decode As → SMTP)
+- [ ] Explicar portas: SMTP `25` (padrão) / `1025` (Mailpit), submissão `587`, SMTPS `465`, POP3 `110`, IMAP `143`
 
 ---
 
